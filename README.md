@@ -1,4 +1,4 @@
-## Let's Encrypt Certificate Deployment Script for Debian-based Hosts
+## Ansible Role: Automated Let's Encrypt Certificate Renewal
 
 This roles automates the deployment of Let's Encrypt ```certbot``` utility on Debian-based hosts. The role utilizes the [Cloudflare plugin](https://certbot-dns-cloudflare.readthedocs.io/en/stable/) for Domain Control Validation (DCV).
 
