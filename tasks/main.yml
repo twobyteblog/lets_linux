@@ -1,0 +1,104 @@
+---
+# tasks file for lets_linux
+
+# Install snapd.
+
+- name: Install snapd package.
+  ansible.builtin.apt:
+    name: snapd
+    state: latest
+    update_cache: yes
+
+# If not already installed, install core snap and verify its on the latest version.
+
+- name: Check if core snap is already installed.
+  ansible.builtin.stat:
+    path: /snap/core
+  register: core
+
+- name: Install core snap.
+  community.general.snap: 
+    name: core
+  when: not core.stat.exists
+
+- name: Refresh core snap.
+  ansible.builtin.command: snap refresh core
+  when: not core.stat.exists
+
+# If not already installed, install certbot snap.
+
+- name: Check if certbot snap is already installed.
+  ansible.builtin.stat:
+    path: /snap/certbot
+  register: certbot
+
+- name: Install certbot snap.
+  community.general.snap:
+    name: certbot
+    classic: true
+  when: not certbot.stat.exists
+
+- name: Create symbolic link for certbot snap.
+  ansible.builtin.file:
+    src: "/snap/bin/certbot"
+    dest: "/usr/bin/certbot"
+    state: link
+  when: not certbot.stat.exists
+
+# If not already installed, install certbot-dns-cloudflare snap.
+
+- name: Check if certbot-dns-cloudflare plugin is installed.
+  ansible.builtin.stat:
+    path: /snap/certbot-dns-cloudflare
+  register: cloudflare_plugin
+
+- name: Trust Cloudflare plugin with root access.
+  ansible.builtin.command: snap set certbot trust-plugin-with-root=ok
+  when: not cloudflare_plugin.stat.exists
+
+- name: Install certbot-dns-cloudflare.
+  community.general.snap:
+    name: certbot-dns-cloudflare
+  when: not cloudflare_plugin.stat.exists
+
+- name: Configure Logrotate.
+  ansible.builtin.template:
+    src: logrotate.j2
+    dest: /etc/logrotate.d/letsencrypt
+    mode: '0644'
+    backup: false
+
+# Add Cloudflare DNS Token.
+
+- name: Add DNS tokens.
+  ansible.builtin.copy:
+    dest: "{{ cloudflare_api_token_location }}"
+    content: |
+      dns_cloudflare_api_token = {{ cloudflare_api_token }}
+    mode: "0600"
+
+# Generate certificate.
+
+- name: Generate certificates.
+  include_tasks: generate.yml
+  loop: "{{ cert_domains }}"
+
+# Install renewal hooks.
+
+- name: Gather package facts.
+  package_facts:
+    manager: apt
+
+- name: Install apache2 renewal hook.
+  ansible.builtin.copy:
+    src: apache2_hook.sh
+    dest: /etc/letsencrypt/renewal-hooks/deploy/apache2_renewal_hook.sh
+    mode: '0644'
+  when: '"apache2" in ansible_facts.packages'
+
+- name: Install nginx renewal hook.
+  ansible.builtin.copy:
+    src: nginx_hook.sh
+    dest: /etc/letsencrypt/renewal-hooks/deploy/nginx_renewal_hook.sh
+    mode: '0644'
+  when: '"nginx" in ansible_facts.packages'

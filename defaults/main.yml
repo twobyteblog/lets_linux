@@ -1,0 +1,5 @@
+---
+# defaults file for lets_linux
+
+## Location of Cloudflare token.
+cloudflare_api_token_location: "/root/.cloudflare_token"
